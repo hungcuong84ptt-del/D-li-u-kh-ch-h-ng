@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Hồ sơ khách hàng vay</title><!-- bản 3 -->
+<title>Hồ sơ khách hàng vay</title>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--tx:#1b2430;--mu:#6b7785;--pr:#0f7b5f;--pr2:#e1f3ee;--bd:#dde3ea;--ok:#0f7b5f;--wn:#b7791f;--bad:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171d;--card:#1c242d;--tx:#e8edf2;--mu:#98a4b1;--pr:#3ec59d;--pr2:#17352d;--bd:#2c3743;--ok:#3ec59d;--wn:#e0b04a;--bad:#ef7b6d}}
@@ -208,8 +208,22 @@ function loadTJ(){if(window.Tesseract)return Promise.resolve();return _tj||(_tj=
 function ocrBlob(f){return new Promise((ok,no)=>{const r=new FileReader();r.onerror=no;r.onload=()=>{const im=new Image();im.onerror=no;im.onload=()=>{const m=Math.max(im.width,im.height),s=m<1800?Math.min(2,1800/m):Math.min(1,2200/m),cv=document.createElement('canvas');cv.width=Math.round(im.width*s);cv.height=Math.round(im.height*s);const x=cv.getContext('2d');x.drawImage(im,0,0,cv.width,cv.height);
  try{const d=x.getImageData(0,0,cv.width,cv.height),p=d.data;for(let i=0;i<p.length;i+=4){let g=.299*p[i]+.587*p[i+1]+.114*p[i+2];g=(g-128)*1.4+128;g=g<0?0:g>255?255:g;p[i]=p[i+1]=p[i+2]=g}x.putImageData(d,0,0)}catch(e){}
  cv.toBlob(b=>b?ok(b):no(),'image/png')};im.src=r.result};r.readAsDataURL(f)})}
-function cleanAddr(s){const w=String(s).split(/\s+/).filter(x=>!/[=+\\<>«»|~^`@#$%*_{}\[\]]/.test(x)&&(x.length>1||/\d/.test(x)));let r=w.join(' ').replace(/(\s*,)+/g,',').replace(/,(?=\S)/g,', ').replace(/^[\s,.:;\-]+|[\s,.:;\-]+$/g,'');const l=(r.match(/[A-Za-zÀ-ỹ]/g)||[]).length;return l>=r.length*.6?r:''}
+function cutLab(s){const t=String(s).normalize('NFC'),m=/(noi dang ky|khai sinh|place of|noi cap|co gia tri|valid|date of|ngay )/.exec(nd(t));return m?t.slice(0,m.index):t}
+function okPast(d,minAge){const m=String(d||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(!m||+m[2]<1||+m[2]>12||+m[1]<1||+m[1]>31||+m[3]<1920)return false;if(new Date(+m[3],+m[2]-1,+m[1])>new Date())return false;return !minAge||+m[3]<=new Date().getFullYear()-minAge}
+function cvBlob(cv){return new Promise((ok,no)=>{try{const x=cv.getContext('2d'),d=x.getImageData(0,0,cv.width,cv.height),p=d.data;for(let i=0;i<p.length;i+=4){let g=.299*p[i]+.587*p[i+1]+.114*p[i+2];g=(g-128)*1.4+128;g=g<0?0:g>255?255:g;p[i]=p[i+1]=p[i+2]=g}x.putImageData(d,0,0)}catch(e){}cv.toBlob(b=>b?ok(b):no(),'image/png')})}
+function bandsFrom(R,h){const gap=Math.max(Math.round(h*.03),30),B=[];let st=-1,pv=-1;for(let y=0;y<h;y++){if(R[y]>=4){if(st<0)st=pv=y;else if(y-pv>gap){B.push([st,pv]);st=y}pv=y}}if(st>=0)B.push([st,pv]);return B.filter(x=>x[1]-x[0]>=h*.03)}
+function cropBands(cv){try{const w=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data,W=cv.width,H=cv.height,R=new Array(H).fill(0);
+ for(let y=0;y<H;y+=3){let n=0;for(let q=0;q<W;q+=3){const i=(y*W+q)*4;if(w[i]+w[i+1]+w[i+2]<690)n++}R[y]=n}
+ const B=bandsFrom(R,H);if(!B.length||(B.length===1&&(B[0][1]-B[0][0])>H*.85))return[cv];
+ const out=[];
+ for(const[b0,e0]of B){const C=new Array(W).fill(0);for(let y=b0;y<=e0;y+=3)for(let q=0;q<W;q+=3){const i=(y*W+q)*4;if(w[i]+w[i+1]+w[i+2]<690)C[q]++}
+  let a=0,c=W-1;while(a<W&&C[a]<2)a++;while(c>a&&C[c]<2)c--;if(c<=a)continue;
+  const m=Math.round(Math.max(W,H)*.03);a=Math.max(0,a-m);c=Math.min(W-1,c+m);const t=Math.max(0,b0-m),e=Math.min(H-1,e0+m),cw=c-a+1,ch=e-t+1,s=Math.min(2.5,2400/Math.max(cw,ch)),o=document.createElement('canvas');
+  o.width=Math.round(cw*s);o.height=Math.round(ch*s);o.getContext('2d').drawImage(cv,a,t,cw,ch,0,0,o.width,o.height);out.push(o)}
+ return out.length?out:[cv]}catch(e){return[cv]}}
+function cleanAddr(s){const w=String(s).split(/\s+/).filter(x=>!/[=+\\<>«»|~^`@#$%*_{}\[\]]/.test(x)&&(x.length>1||/\d/.test(x)));while(w.length&&w[w.length-1].length<=2&&!/\d/.test(w[w.length-1])&&!/^[A-ZÀ-Ỵ][a-zà-ỹ]$/.test(w[w.length-1]))w.pop();let r=w.join(' ').replace(/(\s*,)+/g,',').replace(/,(?=\S)/g,', ').replace(/^[\s,.:;\-]+|[\s,.:;\-]+$/g,'');const l=(r.match(/[A-Za-zÀ-ỹ]/g)||[]).length;return l>=r.length*.45?r:''}
 function parseCard(txt){
+ txt=txt.replace(/(\d{2}\/)(\d)\s(\d)(\/\d{4})/g,'$1$2$3$4');
  const L=txt.split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(x=>x.length>1),N=L.map(nd),o={};
  const dre=/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{4})/;
  const fd2=s=>{const m=String(s||'').match(dre);return m?m[1].padStart(2,'0')+'/'+m[2].padStart(2,'0')+'/'+m[3]:''};
@@ -218,29 +232,39 @@ function parseCard(txt){
  const STOP=/cong hoa|viet nam|doc lap|hanh phuc|can cuoc|cuoc cong dan|socialist|republic|independence|freedom|happiness|identity|citizen|bo cong an|cuc |canh sat|quan ly|surname|given name|middle name|full name|place of|date of|nationality|personal|ho,|ho va|so dinh|chu dem/;
  const cleanName=s=>s.replace(/[^A-Za-zÀ-ỹ\s]/g,' ').replace(/\s+/g,' ').trim();
  const upr=s=>{const l=[...s].filter(c=>c!==c.toUpperCase()||c!==c.toLowerCase());if(!l.length)return 0;return l.filter(c=>c===c.toUpperCase()).length/l.length};
- const isName=s=>{const v=cleanName(s);return v.split(' ').filter(w=>w.length>0).length>=2&&v.split(' ').every(w=>w.length>=2&&/[aeiouyAEIOUYÀ-ỹ]/.test(w))&&v.length>=6&&v.length<=40&&upr(v)>=.7&&!STOP.test(nd(v))};
+ const isName=(s,lo)=>{const v=cleanName(s);return v.split(' ').filter(w=>w.length>0).length>=2&&v.split(' ').every(w=>w.length>=2&&/[aeiouyAEIOUYÀ-ỹ]/.test(w))&&v.length>=6&&v.length<=40&&(lo||upr(v)>=.7)&&!STOP.test(nd(v))};
  const title=v=>v.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
  for(let i=0;i<L.length;i++){const m=L[i].replace(/[\s.]/g,'').match(/(?:^|\D)(\d{12})(?!\d)/);if(m&&/so|no|dinh danh|identif/.test(N[i])){o.cccd=m[1];break}}
  if(!o.cccd){const m=txt.replace(/[ \t]/g,'').match(/(?:^|\D)(\d{12})(?!\d)/);if(m)o.cccd=m[1]}
  let i=find(/ho va ten|ho,? chu dem|full name|surname|given name|ten khai sinh/);
- if(i>=0){const r0=rest(i);if(isName(r0))o.name=title(cleanName(r0));else for(let j=i+1;j<Math.min(L.length,i+4);j++){if(isName(L[j])){o.name=title(cleanName(L[j]));break}}}
+ if(i>=0){const r0=rest(i);if(isName(r0,1))o.name=title(cleanName(r0));else for(let j=i+1;j<Math.min(L.length,i+4);j++){if(isName(L[j],1)){o.name=title(cleanName(L[j]));break}}}
  if(!o.name){const j=L.findIndex(isName);if(j>=0)o.name=title(cleanName(L[j]))}
  const ds=[...txt.matchAll(new RegExp(dre.source,'g'))].map(m=>fd2(m[0]));
- i=find(/sinh|birth/);if(i>=0)o.dob=fd2(L[i])||fd2(L[i+1]);
- i=find(/co gia tri|expiry|valid/);const exp=i>=0?(fd2(L[i])||fd2(L[i+1])):'';
- if(!o.dob){o.dob=ds.find(d=>d&&d!==exp)||''}
+ i=N.findIndex(x=>/nam sinh|date of birth|ngay sinh/.test(x)&&!/khai sinh|place of birth/.test(x));if(i>=0)o.dob=fd2(L[i])||fd2(L[i+1]);
+ i=find(/co gia tri|expiry|valid|het han/);const exp=i>=0?(fd2(L[i])||fd2(L[i+1])):'';
+  const Z=L.map(x=>x.replace(/\s/g,'').toUpperCase()),mz={};
+ for(const z of Z){let m;
+  if(!mz.cccd&&(m=z.match(/ID[A-Z]?NM(\d{10})(\d{12})/)))mz.cccd=m[2];
+  if(!mz.dob&&(m=z.match(/(\d{2})(\d{2})(\d{2})\d([MF])(\d{6})\d?(?:VNM|<)/))){const yy=+m[1];if(+m[2]>=1&&+m[2]<=12&&+m[3]>=1&&+m[3]<=31){mz.dob=m[3]+'/'+m[2]+'/'+((yy<=new Date().getFullYear()%100?2000:1900)+yy);mz.sex=m[4]==='M'?'Nam':'Nữ'}}
+  if(!mz.name&&!/^ID/.test(z)&&/^[A-Z]{1,15}<<[A-Z<]{3,}/.test(z)){const p=z.split('<<');mz.name=(p[0]+' '+p[1].replace(/</g,' ')).replace(/\s+/g,' ').trim()}}
+ if(!o.cccd&&mz.cccd)o.cccd=mz.cccd;
+ let ny=0,ns='';if(o.cccd&&/^\d{12}$/.test(o.cccd)){const g=+o.cccd[3];ny=1900+100*Math.floor(g/2)+(+o.cccd.slice(4,6));ns=g%2===0?'Nam':'Nữ'}
+ const okY=d=>d&&okPast(d,14)&&(!ny||+d.slice(6)===ny);
+ o.dob=[o.dob,...ds,mz.dob].find(okY)||'';
  i=find(/gioi tinh|sex/);
  if(i>=0){const cl=s=>(s||'').replace(/gioi tinh|sex/g,'').replace(/viet nam/g,'');let m=cl(N[i]).match(/\b(nam|nu|male|female)\b/);if(!m&&!/quoc tich|nationality/.test(N[i+1]||''))m=cl(N[i+1]).match(/\b(nam|nu|male|female)\b/);if(m)o.sex=/nam|male/.test(m[1])?'Nam':'Nữ'}
  i=find(/thuong tru|residence|cu tru/);
  if(i>=0){const a=[];if(rest(i).length>1)a.push(rest(i));
-  for(let j=i+1;j<Math.min(L.length,i+3);j++){if(/co gia tri|expiry|valid|dac diem|ngay|date|noi cap|quoc tich/.test(N[j]))break;a.push(L[j])}
-  const s=cleanAddr(a.join(', ').replace(/[|_]/g,'')).replace(/\s+,/g,',').replace(/,\s*,/g,',').trim();if(s.length>4)o.addr=s}
- i=find(/ngay cap|date of issue|ngay, thang, nam|date, month, year|ngay thang nam/);
+  for(let j=i+1;j<Math.min(L.length,i+3);j++){if(/co gia tri|expiry|valid|dac diem|ngay|date|noi cap|quoc tich|noi dang ky|khai sinh|birth/.test(N[j]))break;a.push(L[j])}
+  const s=cleanAddr(cutLab(a.join(', ').replace(/[|_]/g,''))).replace(/\s+,/g,',').replace(/,\s*,/g,',').trim();if(s.length>4)o.addr=s}
+ i=find(/ngay cap|date of issue|nam cap/);
  let c=i>=0?(fd2(L[i])||fd2(L[i+1])):'';
- if(!c||c===o.dob)c=ds.find(d=>d&&d!==o.dob&&d!==exp)||'';
+ if(!c||c===o.dob||!okPast(c))c=ds.find(d=>d&&d!==o.dob&&d!==exp&&okPast(d))||'';
  if(c)o.cdate=c;
  const T2=N.join(' ');
  if(/bo cong an/.test(T2))o.cplace='Bộ Công An';else if(/quan ly hanh chinh|canh sat/.test(T2))o.cplace='Cục Cảnh sát QLHC về TTXH';
+ if(ns||mz.sex)o.sex=ns||mz.sex;
+ if(mz.name){const a=nd(o.name||'').replace(/\s/g,''),b=nd(mz.name).replace(/\s/g,'');if(a!==b)o.name=title(mz.name.toLowerCase())}
  return o}
 const OLB={name:'tên',cccd:'CCCD',dob:'ngày sinh',sex:'giới tính',addr:'địa chỉ',cdate:'ngày cấp',cplace:'nơi cấp',tel:'SĐT',job:'nghề nghiệp',mar:'hôn nhân'};
 function fillFrom(txt){const k=$('#ai_t').value,d=parseID(txt),ok=[];
@@ -262,7 +286,7 @@ function kvParse(txt){const r={},DR=/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s
   else if(k==='cccd'){const m=v.replace(/\s/g,'').match(/\d{12}|\d{9}/);if(m)o[k]=m[0]}
   else if(k==='sex'){const m=v.toLowerCase().replace(/viet nam/g,'').match(/\b(nam|nữ|nu)\b/);if(m)o[k]=m[1]==='nam'?'Nam':'Nữ'}
   else if(k==='name'){v=v.replace(/[^A-Za-zÀ-ỹ\s]/g,'').replace(/\s+/g,' ').trim();if(v.length>2&&v.split(' ').every(w=>w.length>=2))o[k]=v===v.toUpperCase()?v.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase()):v}
-  else if(v.length>1){if(k==='addr')v=cleanAddr(v);if(v)o[k]=v}}
+  else if(v.length>1){if(k==='addr')v=cleanAddr(cutLab(v));if(v)o[k]=v}}
  return o}
 function parseID(txt){return Object.assign({},parseCard(txt),kvParse(txt))}
 let _pj=null;
@@ -272,7 +296,7 @@ async function pdfParts(f,st){await loadPJ();const doc=await pdfjsLib.getDocumen
   tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const y=it.transform[5],x=it.transform[4];let r=rows.find(q=>Math.abs(q.y-y)<3);if(!r){r={y,a:[]};rows.push(r)}r.a.push({x,s:it.str})});
   rows.sort((a,b)=>b.y-a.y);const t=rows.map(r=>r.a.sort((a,b)=>a.x-b.x).map(i=>i.s).join(' ')).join('\n');
   if(t.replace(/\s/g,'').length>40)txt+='\n'+t;
-  else{const v0=pg.getViewport({scale:1}),sc=Math.min(3,2200/Math.max(v0.width,v0.height)),vp=pg.getViewport({scale:sc}),cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:cx,viewport:vp}).promise;bl.push(await new Promise(r=>cv.toBlob(r,'image/png')))}}
+  else{const v0=pg.getViewport({scale:1}),sc=Math.min(6,3200/Math.max(v0.width,v0.height)),vp=pg.getViewport({scale:sc}),cv=document.createElement('canvas');cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:cx,viewport:vp}).promise;for(const c of cropBands(cv))bl.push(await cvBlob(c))}}
  return{txt,bl}}
 async function readOCR(inp){const fs=[...inp.files];if(!fs.length)return;const st=$('#ai_s');let txt='';
  try{const bl=[];
@@ -281,7 +305,7 @@ async function readOCR(inp){const fs=[...inp.files];if(!fs.length)return;const s
    const w=await Tesseract.createWorker('vie',1,{logger:m=>{if(m.status==='recognizing text')st.textContent='⏳ Đang đọc chữ '+Math.round(m.progress*100)+'%';else st.textContent='⏳ Đang chuẩn bị bộ đọc chữ...'}});
    let t2='';await w.setParameters({tessedit_pageseg_mode:'6'});
    for(const b of bl){t2+='\n'+(await w.recognize(b)).data.text}
-   if(Object.keys(parseID(txt+t2)).length<4){await w.setParameters({tessedit_pageseg_mode:'11'});for(const b of bl){t2+='\n'+(await w.recognize(b)).data.text}}
+   if(Object.keys(parseID(txt+t2)).length<6){await w.setParameters({tessedit_pageseg_mode:'11'});for(const b of bl){t2+='\n'+(await w.recognize(b)).data.text}}
    await w.terminate();txt+=t2}
   txt=txt.trim();showRaw(txt);fillFrom(txt)}
  catch(e){st.textContent=(e&&e.message==='net')?'Không tải được bộ đọc. Kiểm tra mạng rồi thử lại.':'Chưa đọc được file. Thử chụp lại rõ hơn hoặc dùng file khác.'}
