@@ -47,6 +47,7 @@ nav button{font-size:15px;padding:12px 4px}
 .wd{font-size:13.5px}
 .ev{font-size:15px}
 #rm .card{max-height:85vh;overflow-y:auto}
+.chk{border-color:var(--wn)!important;background:rgba(224,176,74,.18)!important}
 </style>
 </head>
 <body>
@@ -216,7 +217,7 @@ function parseCard(txt){
  const STOP=/cong hoa|viet nam|doc lap|hanh phuc|can cuoc|cuoc cong dan|socialist|republic|independence|freedom|happiness|identity|citizen|bo cong an|cuc |canh sat|quan ly|surname|given name|middle name|full name|place of|date of|nationality|personal|ho,|ho va|so dinh|chu dem/;
  const cleanName=s=>s.replace(/[^A-Za-zÀ-ỹ\s]/g,' ').replace(/\s+/g,' ').trim();
  const upr=s=>{const l=[...s].filter(c=>c!==c.toUpperCase()||c!==c.toLowerCase());if(!l.length)return 0;return l.filter(c=>c===c.toUpperCase()).length/l.length};
- const isName=s=>{const v=cleanName(s);return v.split(' ').filter(w=>w.length>0).length>=2&&v.length>=6&&v.length<=40&&upr(v)>=.7&&!STOP.test(nd(v))};
+ const isName=s=>{const v=cleanName(s);return v.split(' ').filter(w=>w.length>0).length>=2&&v.split(' ').every(w=>w.length>=2&&/[aeiouyAEIOUYÀ-ỹ]/.test(w))&&v.length>=6&&v.length<=40&&upr(v)>=.7&&!STOP.test(nd(v))};
  const title=v=>v.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
  for(let i=0;i<L.length;i++){const m=L[i].replace(/[\s.]/g,'').match(/(?:^|\D)(\d{12})(?!\d)/);if(m&&/so|no|dinh danh|identif/.test(N[i])){o.cccd=m[1];break}}
  if(!o.cccd){const m=txt.replace(/[ \t]/g,'').match(/(?:^|\D)(\d{12})(?!\d)/);if(m)o.cccd=m[1]}
@@ -242,8 +243,8 @@ function parseCard(txt){
  return o}
 const OLB={name:'tên',cccd:'CCCD',dob:'ngày sinh',sex:'giới tính',addr:'địa chỉ',cdate:'ngày cấp',cplace:'nơi cấp',tel:'SĐT',job:'nghề nghiệp',mar:'hôn nhân'};
 function fillFrom(txt){const k=$('#ai_t').value,d=parseID(txt),ok=[];
- for(const x in OLB){const el=$('#'+k+'_'+x);if(d[x]&&el){el.value=d[x];ok.push(OLB[x])}}
- $('#ai_s').textContent=ok.length?'✅ Đã điền: '+ok.join(', ')+'. Hãy kiểm tra kỹ từng ô rồi bấm Lưu.':'Không nhận ra thông tin nào trong ảnh. Hãy chụp thẳng, đủ sáng, rõ chữ rồi thử lại.';return ok.length}
+ for(const x in OLB){const el=$('#'+k+'_'+x);if(d[x]&&el){el.value=d[x];el.classList.add('chk');el.addEventListener('input',()=>el.classList.remove('chk'),{once:true});ok.push(OLB[x])}}
+ $('#ai_s').textContent=ok.length?'✅ Đã điền: '+ok.join(', ')+'. Ô có viền vàng là chữ máy tự đọc, hãy kiểm tra và sửa rồi bấm Lưu.':'Không nhận ra thông tin nào trong ảnh. Hãy chụp thẳng, đủ sáng, rõ chữ rồi thử lại.';return ok.length}
 function showRaw(txt){$('#ai_raw').innerHTML=`<details style="margin:8px 0"><summary style="color:var(--pr)">Chữ máy đọc được (bấm để xem/sửa)</summary><textarea id="ocr_txt" rows="8"></textarea><button type="button" class="g" style="width:100%;margin-top:6px" onclick="fillFrom($('#ocr_txt').value)">Điền lại từ nội dung đã sửa</button></details>`;$('#ocr_txt').value=txt}
 const KV=[['name',/ten khach hang/],['addr',/dia chi hien tai|dia chi thuong tru/],['tel',/so di dong/],['job',/nghe nghiep/],['mar',/tinh trang gia dinh|tinh trang hon nhan/],['dob',/ngay sinh/],['sex',/gioi tinh/],['cccd',/so cccd(?: ht)?|so cmnd|so can cuoc/],['cdate',/ngay cap(?! ho khau)/],['cplace',/noi cap(?! ho khau)/]];
 const KD=[/ngay het han/,/noi sinh/,/so co dinh/,/email/,/ma so thue/,/so cmnd cu/,/dan toc/,/trinh do/,/so ho khau/,/noi cap ho khau/,/ngay cap ho khau/,/ma khach hang/,/ma khu vuc/,/fax/,/so tai khoan/,/mo tai ngan hang/,/loai tv/,/loai giay to/,/loai khach hang/];
@@ -259,7 +260,7 @@ function kvParse(txt){const r={},DR=/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s
   else if(k==='tel'){const d=v.replace(/\D/g,'');if(d.length>=9&&d.length<=11)o[k]=d}
   else if(k==='cccd'){const m=v.replace(/\s/g,'').match(/\d{12}|\d{9}/);if(m)o[k]=m[0]}
   else if(k==='sex'){const m=v.toLowerCase().replace(/viet nam/g,'').match(/\b(nam|nữ|nu)\b/);if(m)o[k]=m[1]==='nam'?'Nam':'Nữ'}
-  else if(k==='name'){v=v.replace(/[^A-Za-zÀ-ỹ\s]/g,'').replace(/\s+/g,' ').trim();if(v.length>2)o[k]=v===v.toUpperCase()?v.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase()):v}
+  else if(k==='name'){v=v.replace(/[^A-Za-zÀ-ỹ\s]/g,'').replace(/\s+/g,' ').trim();if(v.length>2&&v.split(' ').every(w=>w.length>=2))o[k]=v===v.toUpperCase()?v.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase()):v}
   else if(v.length>1)o[k]=v}
  return o}
 function parseID(txt){return Object.assign({},parseCard(txt),kvParse(txt))}
